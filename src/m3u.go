@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"os"
 	"os/exec"
 	"path"
 	"regexp"
@@ -230,6 +231,16 @@ func buildM3U(groups []string) (m3u string, err error) {
 	}
 	m3u = fmt.Sprintf(`#EXTM3U url-tvg="%s" x-tvg-url="%s"`+"\n", xmltvURL, xmltvURL)
 
+	// Determine effective domains for GetURL
+	httpDomainForGetURL := Settings.HttpThreadfinDomain
+	if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+		httpDomainForGetURL = envDomain
+	}
+	httpsDomainForGetURL := Settings.HttpsThreadfinDomain
+	if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+		httpsDomainForGetURL = envDomain
+	}
+
 	for _, channelNumber := range channelNumbers {
 
 		var channel = m3uChannels[channelNumber]
@@ -257,7 +268,7 @@ func buildM3U(groups []string) (m3u string, err error) {
 
 		logo := ""
 		if channel.TvgLogo != "" {
-			logo = imgc.Image.GetURL(channel.TvgLogo, Settings.HttpThreadfinDomain, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, Settings.HttpsThreadfinDomain)
+			logo = imgc.Image.GetURL(channel.TvgLogo, httpDomainForGetURL, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, httpsDomainForGetURL)
 		}
 		var parameter = fmt.Sprintf(`#EXTINF:0 channelID="%s" tvg-chno="%s" tvg-name="%s" tvg-id="%s" tvg-logo="%s" group-title="%s",%s`+"\n", channel.XEPG, channel.XChannelID, channel.XName, channel.XChannelID, logo, group, channel.XName)
 		var stream, err = createStreamingURL("M3U", channel.FileM3UID, channel.XChannelID, channel.XName, channel.URL, channel.BackupChannel1, channel.BackupChannel2, channel.BackupChannel3)
