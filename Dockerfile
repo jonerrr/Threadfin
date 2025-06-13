@@ -80,9 +80,13 @@ RUN apt-get update && \
     mkdir -p $THREADFIN_BIN $THREADFIN_CONF $THREADFIN_TEMP $THREADFIN_HOME/cache && \
     chmod a+rwX $THREADFIN_CONF $THREADFIN_TEMP && \
     sed -i 's/geteuid/getppid/' /usr/bin/vlc && \
-    curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key \
-        | gpg --dearmor -o /etc/apt/trusted.gpg.d/debian-jellyfin.gpg && \
-    echo "deb [arch=${TARGETARCH}] https://repo.jellyfin.org/master/${OS_VERSION} ${OS_CODENAME} main" > /etc/apt/sources.list.d/jellyfin.list && \
+    curl -fsSL https://repo.jellyfin.org/master/ubuntu/jellyfin_team.gpg.key \
+        | gpg --dearmor -o /etc/apt/trusted.gpg.d/ubuntu-jellyfin.gpg && \
+    (if [ "${TARGETARCH}" = "arm" ]; then \
+        echo "deb [arch=armhf] https://repo.jellyfin.org/master/${OS_VERSION} ${OS_CODENAME} main" > /etc/apt/sources.list.d/jellyfin.list; \
+    else \
+        echo "deb [arch=${TARGETARCH}] https://repo.jellyfin.org/master/${OS_VERSION} ${OS_CODENAME} main" > /etc/apt/sources.list.d/jellyfin.list; \
+    fi) && \
     apt-get update && \
     apt-get install --no-install-recommends --no-install-suggests --yes \
         jellyfin-ffmpeg7 && \
