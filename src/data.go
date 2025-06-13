@@ -207,7 +207,15 @@ func updateServerSettings(request RequestStruct) (settings SettingsStruct, err e
 
 			if Settings.EpgSource == "XEPG" && System.ImageCachingInProgress == 0 {
 
-				Data.Cache.Images, err = imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
+				// Determine the domain for the image cache URL
+				imageDomain := System.Domain
+				if envImageDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envImageDomain != "" {
+					imageDomain = envImageDomain
+					showInfo("Image Caching: Using THREADFIN_IMAGE_DOMAIN for image cache URL: " + imageDomain)
+				}
+
+				cacheURL := fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, imageDomain)
+				Data.Cache.Images, err = imgcache.New(System.Folder.ImagesCache, cacheURL, Settings.CacheImages)
 				if err != nil {
 					ShowError(err, 0)
 				}
@@ -510,7 +518,13 @@ func saveXEpgMapping(request RequestStruct) (err error) {
 
 	Data.Cache.StreamingURLS = make(map[string]StreamInfo)
 
-	Data.Cache.Images, err = imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
+	// Determine the domain for the image cache URL
+	imageDomain := System.Domain // Default domain
+	if envImageDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envImageDomain != "" {
+		imageDomain = envImageDomain
+	}
+	cacheImageURL := fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, imageDomain)
+	Data.Cache.Images, err = imgcache.New(System.Folder.ImagesCache, cacheImageURL, Settings.CacheImages)
 	if err != nil {
 		ShowError(err, 0)
 	}

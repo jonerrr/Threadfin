@@ -61,7 +61,13 @@ func buildXEPG(background bool) {
 
 	var err error
 
-	Data.Cache.Images, err = imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
+	// Determine the domain for the image cache URL
+	imageDomain := System.Domain // Default domain
+	if envImageDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envImageDomain != "" {
+		imageDomain = envImageDomain
+	}
+	cacheImageURL := fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, imageDomain)
+	Data.Cache.Images, err = imgcache.New(System.Folder.ImagesCache, cacheImageURL, Settings.CacheImages)
 	if err != nil {
 		ShowError(err, 0)
 	}
@@ -275,12 +281,22 @@ func createXEPGMapping() {
 				// Daten aus der XML Datei in eine temporäre Map schreiben
 				var xmltvMap = make(map[string]interface{})
 
+				// Determine effective domains for GetURL
+				httpDomainForGetURL := Settings.HttpThreadfinDomain
+				if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+					httpDomainForGetURL = envDomain
+				}
+				httpsDomainForGetURL := Settings.HttpsThreadfinDomain
+				if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+					httpsDomainForGetURL = envDomain
+				}
+
 				for _, c := range xmltv.Channel {
 					var channel = make(map[string]interface{})
 
 					channel["id"] = c.ID
 					channel["display-name"] = friendlyDisplayName(*c)
-					channel["icon"] = imgc.Image.GetURL(c.Icon.Src, Settings.HttpThreadfinDomain, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, Settings.HttpsThreadfinDomain)
+					channel["icon"] = imgc.Image.GetURL(c.Icon.Src, httpDomainForGetURL, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, httpsDomainForGetURL)
 					channel["active"] = c.Active
 
 					xmltvMap[c.ID] = channel
@@ -937,6 +953,16 @@ func createXMLTVFile() (err error) {
 
 	var tmpProgram = &XMLTV{}
 
+	// Determine effective domains for GetURL calls within the loop
+	httpDomainForGetURL := Settings.HttpThreadfinDomain
+	if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+		httpDomainForGetURL = envDomain
+	}
+	httpsDomainForGetURL := Settings.HttpsThreadfinDomain
+	if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+		httpsDomainForGetURL = envDomain
+	}
+
 	for _, dxc := range Data.XEPG.Channels {
 		var xepgChannel XEPGChannelStruct
 		err := json.Unmarshal([]byte(mapToJSON(dxc)), &xepgChannel)
@@ -953,7 +979,7 @@ func createXMLTVFile() (err error) {
 					// Kanäle
 					var channel Channel
 					channel.ID = xepgChannel.XChannelID
-					channel.Icon = Icon{Src: imgc.Image.GetURL(xepgChannel.TvgLogo, Settings.HttpThreadfinDomain, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, Settings.HttpsThreadfinDomain)}
+					channel.Icon = Icon{Src: imgc.Image.GetURL(xepgChannel.TvgLogo, httpDomainForGetURL, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, httpsDomainForGetURL)}
 					channel.DisplayName = append(channel.DisplayName, DisplayName{Value: xepgChannel.XName})
 					channel.Active = xepgChannel.XActive
 					channel.Live = xepgChannel.Live
@@ -961,7 +987,8 @@ func createXMLTVFile() (err error) {
 				}
 
 				// Programme
-				*tmpProgram, err = getProgramData(xepgChannel)
+				// Pass effective domains to getProgramData or ensure getProgramData recalculates them
+				*tmpProgram, err = getProgramData(xepgChannel) // getProgramData will handle its own domain logic
 				if err == nil {
 					xepgXML.Program = append(xepgXML.Program, tmpProgram.Program...)
 				}
@@ -1308,6 +1335,16 @@ func createDummyProgram(xepgChannel XEPGChannelStruct) (dummyXMLTV XMLTV) {
 			var epg Program
 			poster := Poster{}
 
+			// Determine effective domains for GetURL
+			httpDomainForGetURL := Settings.HttpThreadfinDomain
+			if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+				httpDomainForGetURL = envDomain
+			}
+			httpsDomainForGetURL := Settings.HttpsThreadfinDomain
+			if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+				httpsDomainForGetURL = envDomain
+			}
+
 			epg.Channel = xepgChannel.XMapping
 			epg.Start = epgStartTime.Format("20060102150405") + offset
 			epg.Stop = epgStopTime.Format("20060102150405") + offset
@@ -1349,7 +1386,7 @@ func createDummyProgram(xepgChannel XEPGChannelStruct) (dummyXMLTV XMLTV) {
 			}
 
 			if Settings.XepgReplaceMissingImages {
-				poster.Src = imgc.Image.GetURL(xepgChannel.TvgLogo, Settings.HttpThreadfinDomain, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, Settings.HttpsThreadfinDomain)
+				poster.Src = imgc.Image.GetURL(xepgChannel.TvgLogo, httpDomainForGetURL, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, httpsDomainForGetURL)
 				epg.Poster = append(epg.Poster, poster)
 			}
 
@@ -1396,8 +1433,18 @@ func getPoster(program *Program, xmltvProgram *Program, xepgChannel XEPGChannelS
 
 	var imgc = Data.Cache.Images
 
+	// Determine effective domains for GetURL
+	httpDomainForGetURL := Settings.HttpThreadfinDomain
+	if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+		httpDomainForGetURL = envDomain
+	}
+	httpsDomainForGetURL := Settings.HttpsThreadfinDomain
+	if envDomain := os.Getenv("THREADFIN_IMAGE_DOMAIN"); envDomain != "" {
+		httpsDomainForGetURL = envDomain
+	}
+
 	for _, poster := range xmltvProgram.Poster {
-		poster.Src = imgc.Image.GetURL(poster.Src, Settings.HttpThreadfinDomain, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, Settings.HttpsThreadfinDomain)
+		poster.Src = imgc.Image.GetURL(poster.Src, httpDomainForGetURL, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, httpsDomainForGetURL)
 		program.Poster = append(program.Poster, poster)
 	}
 
@@ -1405,7 +1452,7 @@ func getPoster(program *Program, xmltvProgram *Program, xepgChannel XEPGChannelS
 
 		if len(xmltvProgram.Poster) == 0 {
 			var poster Poster
-			poster.Src = imgc.Image.GetURL(xepgChannel.TvgLogo, Settings.HttpThreadfinDomain, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, Settings.HttpsThreadfinDomain)
+			poster.Src = imgc.Image.GetURL(xepgChannel.TvgLogo, httpDomainForGetURL, Settings.Port, Settings.ForceHttps, Settings.HttpsPort, httpsDomainForGetURL)
 			program.Poster = append(program.Poster, poster)
 		}
 
