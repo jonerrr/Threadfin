@@ -87,7 +87,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker Build and Push (Standard)
@@ -99,8 +99,8 @@ jobs:
           platforms: linux/amd64
           # tags: fyb3roptik/threadfin:latest,fyb3roptik/threadfin:${{ github.ref_name }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/threadfin:latest
-            ghcr.io/${{ github.repository_owner }}/threadfin:${{ github.ref_name }}
+            ghcr.io/${{ github.actor }}/threadfin:latest
+            ghcr.io/${{ github.actor }}/threadfin:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
